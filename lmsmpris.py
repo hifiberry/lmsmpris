@@ -49,10 +49,6 @@ except ImportError:
 
 identity = "LMS client"
 
-# Default url handlers if MPD doesn't support 'urlhandlers' command
-urlhandlers = ['http://']
-downloaded_covers = ['~/.covers/%s-%s.jpg']
-
 
 class LMSWrapper(threading.Thread):
     """ Wrapper to handle all communications with LMS
@@ -455,8 +451,14 @@ if __name__ == '__main__':
     try:
         lms_wrapper = LMSWrapper()
         lms_wrapper.start()
+        logging.info("LMS poller thread started")
     except dbus.exceptions.DBusException as e:
         logging.error("DBUS error: %s", e)
+        sys.exit(1)
+
+    time.sleep(2)
+    if not (lms_wrapper.is_alive()):
+        logging.error("LMS connector thread died, exiting")
         sys.exit(1)
 
     # Run idle loop
