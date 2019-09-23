@@ -64,33 +64,44 @@ class LMSWrapper(threading.Thread):
         self.dbus_service = None
 
         self.bus = dbus.SessionBus()
+        self.received_data = False
 
     def run(self):
-        self.dbus_service = MPRISInterface()
-        while True:
-            try:
-                self.lms.connect()
-                me = self.lms.client()
-                if me is None:
-                    logging.info("Could not find myself as a client, aborting")
-                    self.lms.disconnect()
-                    break
+        try:
+            self.dbus_service = MPRISInterface()
+            while True:
+                try:
+                    self.lms.connect()
+                    me = self.lms.client()
+                    if me is None:
+                        logging.info(
+                            "Could not find myself as a client, aborting")
+                        self.lms.disconnect()
+                        break
 
-                self.playerid = me["playerid"]
-                logging.info("%s, playerid=%s", self.lms, self.playerid)
+                    self.playerid = me["playerid"]
+                    logging.info("%s, playerid=%s", self.lms, self.playerid)
 
-                # subscribe to player status updates
-                self.lms.add_status_listener(self)
-                self.lms.send(
-                    "{} status - 1 tags:adKljJ subscribe:1".format(self.playerid))
+                    # subscribe to player status updates
+                    self.lms.add_status_listener(self)
+                    self.lms.send(
+                        "{} status - 1 tags:adKljJ subscribe:1".format(self.playerid))
 
-                while self.lms.is_connected():
-                    time.sleep(10)
+                    while self.lms.is_connected():
+                        self.received_data = False
+                        time.sleep(10)
+                        if not(self.received_data):
+                            logging.warning(
+                                "did not receive status updated from LMS, re-connecting")
+                            break
 
-            except Exception as e:
-                logging.warning("error communicating with LMS: %s", e)
-            # Wait a bit before reconnecting
-            time.sleep(30)
+                except Exception as e:
+                    logging.warning("error communicating with LMS: %s", e)
+                # Wait a bit before reconnecting
+                time.sleep(30)
+        except Exception as e:
+            logging.error("LMSWrapper thread died: %s", e)
+            sys.exit(1)
 
     def send_command(self, cmd):
         """
@@ -124,6 +135,7 @@ class LMSWrapper(threading.Thread):
             # unexpected status update from another player
             return
 
+        self.received_data = True
         self._metadata = {}
 
         if "artist" in lms_meta:
