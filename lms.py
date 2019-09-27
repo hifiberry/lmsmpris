@@ -245,7 +245,7 @@ class LMS():
             logging.debug("Using LMS: %s", my_lms)
 
             if my_lms is None:
-                logging.error("Could not find any LMS to use")
+                logging.debug("Could not find any LMS to use")
                 raise IOError("No LMS host to connect to.")
             else:
                 self.host = my_lms
