@@ -37,6 +37,7 @@ from dbus.mainloop.glib import DBusGMainLoop
 import logging
 import time
 import threading
+import math
 
 from lms import LMS
 
@@ -175,7 +176,9 @@ class LMSWrapper(threading.Thread):
         self.received_data = False
 
     def run(self):
+        MAX_DELAY = 600
         try:
+            error_count = 0
             self.dbus_service = MPRISInterface()
             while True:
                 try:
@@ -186,6 +189,8 @@ class LMSWrapper(threading.Thread):
                             "Could not find myself as a client, aborting")
                         self.lms.disconnect()
                         break
+
+                    error_count = 0
 
                     self.playerid = me["playerid"]
                     logging.info("%s, playerid=%s", self.lms, self.playerid)
@@ -205,8 +210,16 @@ class LMSWrapper(threading.Thread):
 
                 except Exception as e:
                     logging.warning("error communicating with LMS: %s", e)
+                    error_count += 1
+
                 # Wait a bit before reconnecting
-                time.sleep(30)
+                delaytime = math.pow(2, error_count)
+                if (delaytime > MAX_DELAY):
+                    delaytime = MAX_DELAY
+
+                logging.info("waiting %s seconds before trying to reconnect",
+                             delaytime)
+                time.sleep(delaytime)
         except Exception as e:
             logging.error("LMSWrapper thread died: %s", e)
             sys.exit(1)
