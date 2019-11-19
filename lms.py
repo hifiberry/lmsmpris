@@ -20,7 +20,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 
-
 import logging
 import threading
 import socket
@@ -87,7 +86,7 @@ def broadcast(ip):
 
 class LMSDiscoverer():
     """
-    derived from https://pastebin.com/5jfta04x  
+    derived from https://pastebin.com/5jfta04x
     """
 
     DISCOVERY_PORT = 3483
@@ -101,6 +100,8 @@ class LMSDiscoverer():
         servers = []
         for ip in my_ips():
             servers.extend(self.discover(ip))
+
+        servers = list(dict.fromkeys(servers))
 
         return servers
 
@@ -226,7 +227,7 @@ class LMS():
     def connect(self):
         """
         - find LMS server
-        - check if the 
+        - check if the
         - connect to server (port 9090)
         - subscribe to status updates
         """
@@ -234,8 +235,13 @@ class LMS():
         if self.host is None:
             my_lms = None
             discover = LMSDiscoverer()
+
             if self.find_my_server:
-                my_lms = discover.discover_my_lms()
+                try:
+                    my_lms = discover.discover_my_lms()
+                except Exception as e:
+                    logging.info("Couldn't connect to LMS: ", e)
+
             else:
                 # select the first LMS server that we can find
                 servers = discover.discover_all()
@@ -252,7 +258,6 @@ class LMS():
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((self.host, self.port))
-
         self.socket = sock
         reader = threading.Thread(target=self.listen)
         reader.start()
@@ -289,7 +294,7 @@ class LMS():
         Subscribe to status updates:
         b8%3A27%3Aeb%3Ac3%3Aa3%3Aae status - 1 tags%3AadKlj subscribe 2
 
-        special characters in strings needs HTML encoding, 
+        special characters in strings needs HTML encoding,
         e.g. %3A for :
         """
         if self.socket is None:
@@ -361,7 +366,7 @@ class LMS():
 
         except IOError as e:
             if self.socket is not None:
-                logging.debug("I/O error, connection probably closed, %s",
+                logging.warn("I/O error, connection probably closed, %s",
                               e)
 
         self.socket = None
@@ -401,3 +406,9 @@ class LMS():
             return "LMS/{}/connected".format(self.host)
         else:
             return "LMS/{}/not connected".format(self.host)
+
+
+if __name__ == "__main__":
+    lms = LMS(find_my_server=True)
+    lms.connect()
+    print(lms)
