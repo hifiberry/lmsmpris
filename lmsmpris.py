@@ -28,7 +28,6 @@
 # Implements only a minimal MPRIS subset that is required by HiFiBerryOS
 #
 
-
 from __future__ import print_function
 
 import sys
@@ -46,7 +45,6 @@ try:
     using_gi_glib = True
 except ImportError:
     import glib as GLib
-
 
 identity = "LMS client"
 
@@ -180,15 +178,18 @@ class LMSWrapper(threading.Thread):
         try:
             error_count = 0
             self.dbus_service = MPRISInterface()
+
             while True:
                 try:
                     self.lms.connect()
                     me = self.lms.client()
                     if me is None:
                         logging.info(
-                            "Could not find myself as a client, aborting")
+                            "could not find myself as a client, aborting")
                         self.lms.disconnect()
                         break
+
+                    logging.info("connected to LMS server at %s", self.lms.host)
 
                     error_count = 0
 
