@@ -490,7 +490,7 @@ class MPRISInterface(dbus.service.Object):
         return read_props
 
     def update_property(self, interface, prop):
-        getter, _setter = self.__prop_mapping[interface][prop]
+        getter, _setter = self.PROP_MAPPING[interface][prop]
         if callable(getter):
             value = getter()
         else:
