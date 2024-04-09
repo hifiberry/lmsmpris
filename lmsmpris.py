@@ -429,14 +429,6 @@ class MPRISInterface(dbus.service.Object):
     def get_metadata():
         return dbus.Dictionary(lms_wrapper.metadata, signature='sv')
 
-#     def __get_position():
-#         status = lms_wrapper.last_status()
-#         if 'time' in status:
-#             current, end = status['time'].split(':')
-#             return dbus.Int64((int(current) * 1000000))
-#         else:
-#             return dbus.Int64(0)
-
     PLAYER_INTERFACE = "org.mpris.MediaPlayer2.Player"
     PLAYER_PROPS = {
         "PlaybackStatus": (get_playback_status, None),
@@ -538,40 +530,6 @@ class MPRISInterface(dbus.service.Object):
     def Play(self):
         lms_wrapper.send_command("play")
         return
-
-#     @dbus.service.method(__player_interface, in_signature='x', out_signature='')
-#     def Seek(self, offset):
-#         status = lms_wrapper.status()
-#         current, end = status['time'].split(':')
-#         current = int(current)
-#         end = int(end)
-#         offset = int(offset) / 1000000
-#         if current + offset <= end:
-#             position = current + offset
-#             if position < 0:
-#                 position = 0
-#             lms_wrapper.seekid(int(status['songid']), position)
-#             self.Seeked(position * 1000000)
-#         return
-#
-#     @dbus.service.method(__player_interface, in_signature='ox', out_signature='')
-#     def SetPosition(self, trackid, position):
-#         song = lms_wrapper.last_currentsong()
-#         # FIXME: use real dbus objects
-#         if str(trackid) != '/org/mpris/MediaPlayer2/Track/%s' % song['id']:
-#             return
-#         # Convert position to seconds
-#         position = int(position) / 1000000
-#         if position <= int(song['time']):
-#             lms_wrapper.seekid(int(song['id']), position)
-#             self.Seeked(position * 1000000)
-#         return
-#
-#     @dbus.service.signal(__player_interface, signature='x')
-#     def Seeked(self, position):
-#         logging.debug("Seeked to %i" % position)
-#         return float(position)
-
 
 if __name__ == '__main__':
     DBusGMainLoop(set_as_default=True)
