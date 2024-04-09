@@ -391,8 +391,11 @@ class LMS():
         if iplist is None:
             iplist = my_ips()
 
+        logging.info("My IPs: %s",iplist)
+
         for player in self.players():
             [ip, _port] = player["ip"].split(":", 1)
+            logging.info("Client: %s",ip) 
             if ip in iplist:
                 return player
 
