@@ -37,6 +37,8 @@ import logging
 import time
 import threading
 import math
+import json
+import os
 
 from lms import LMS
 
@@ -161,17 +163,38 @@ class LMSWrapper(threading.Thread):
     """ Wrapper to handle all communications with LMS
     """
 
-    def __init__(self):
+    def __init__(self, config_file='/etc/squeezelite.json'):
         super().__init__()
-        self.lms = LMS(find_my_server=True)
+
+        # Initialize default settings
+        server_info = {'find_my_server': True}
         self.playerid = None
         self.playback_status = "unknown"
         self.metadata = {}
-
         self.dbus_service = None
-
         self.bus = dbus.SessionBus()
         self.received_data = False
+
+        # Check if the config file exists
+        if os.path.exists(config_file):
+            try:
+                with open(config_file, 'r') as file:
+                    config_data = json.load(file)
+                # Extract the server address from the nested structure
+                server_address = config_data.get('server', {}).get('value')
+                if server_address:
+                    logging.info("Using server %s from config file")
+                    self.lms = LMS(host=server_address)
+                else:
+                    # If the server address is not found, fall back to automatic discovery
+                    self.lms = LMS(find_my_server=True)
+            except json.JSONDecodeError:
+                print("Error reading the server configuration file.")
+                self.lms = LMS(find_my_server=True)
+        else:
+            logging.info("Config file does not exist, trying to discover LMS")
+            self.lms = LMS(find_my_server=True)
+
 
     def run(self):
         MAX_DELAY = 600
