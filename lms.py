@@ -240,7 +240,7 @@ class LMS():
                 try:
                     my_lms = discover.discover_my_lms()
                 except Exception as e:
-                    logging.info("Couldn't connect to LMS: ", e)
+                    logging.info("Couldn't connect to LMS: %s", e)
 
             else:
                 # select the first LMS server that we can find
