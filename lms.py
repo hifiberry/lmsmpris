@@ -93,20 +93,30 @@ class LMSDiscoverer():
     TIMEOUT_MS = 2500
     DISCOVERY_PACKET = b"eIPAD\0NAME\0JSON\0VERS\0"
 
+    # Translate LMS's TLV tag names to easier to read names
+    DISCOVERY_TAGS = {
+        'NAME': 'name',
+        'IPAD': 'host',
+        'JSON': 'http_port',
+        'VERS': 'version',
+        'UUID': 'uuid',
+    }
+
     def __init__(self):
         pass
 
     def discover_all(self):
-        servers = []
+        # Use a dict keyed by server IP address to deduplicate servers
+        servers = {}
         for ip in my_ips():
-            servers.extend(self.discover(ip))
+            servers.update(self.discover(ip))
 
-        servers = list(dict.fromkeys(servers))
+        servers = [server for _ip,server in servers.items()]
 
         return servers
 
     def discover(self, source_address):
-        servers = []
+        servers = {}
 
         client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
         client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -126,8 +136,35 @@ class LMSDiscoverer():
             try:
                 data, (ip, _port) = client.recvfrom(1024)
                 logging.debug("received message from %s: %s", ip, data)
-                if len(data) > 5 and data[0:5].decode() == "ENAME":
-                    servers.append(ip)
+
+                # Parse discovery response, based on LMS perl implementation:
+                # https://github.com/LMS-Community/slimserver/blob/8.5.1/Slim/Networking/Discovery/Server.pm#L182
+                # https://github.com/LMS-Community/slimserver/blob/8.5.1/Slim/Networking/Discovery.pm#L153
+                msg = data.decode()
+                if msg[0] == 'E':
+                    msg = msg[1:] # drop leading E
+
+                    server = {}
+                    remaining = len(msg)
+                    while remaining > 0:
+                        tag = msg[0:4]
+                        length = ord(msg[4])
+                        val = msg[5:5+length] if length > 0 else None
+                        if val:
+                            server[LMSDiscoverer.DISCOVERY_TAGS[tag]] = val
+                        msg = msg[5+length:]
+                        remaining = remaining - 5 - length
+
+                    if server:
+                        # We've parsed a useful response...
+                        if "host" not in server:
+                            # ...but didn't get an IP address
+                            # (LMS only returns the IP address if it's explicitly set by the server
+                            # admin, otherwise we're supposed to use the discovery packet IP)
+                            server["host"] = ip
+                        servers[ip] = server
+                        logging.debug("Parsed server discovery response: %s", server)
+
             except socket.timeout:
                 break
 
@@ -145,7 +182,7 @@ class LMSDiscoverer():
         ips = my_ips()
         result = None
         for server in servers:
-            lms = LMS(server)
+            lms = LMS(**server)
             lms.connect()
             me = lms.client(ips)
             lms.disconnect()
@@ -215,10 +252,10 @@ class CommandResponseListener(threading.Thread):
 
 class LMS():
 
-    def __init__(self, host=None, port=9090, find_my_server=False):
+    def __init__(self, host=None, port=9090, http_port=9000, find_my_server=False, **kwargs):
         self.host = host
         self.port = port
-        self.http_port = 9000
+        self.http_port = http_port
         self.find_my_server = find_my_server
         self.socket = None
         self.status_listeners = []
@@ -240,7 +277,7 @@ class LMS():
                 try:
                     my_lms = discover.discover_my_lms()
                 except Exception as e:
-                    logging.info("Couldn't connect to LMS: ", e)
+                    logging.info("Couldn't connect to LMS: %s", e)
 
             else:
                 # select the first LMS server that we can find
@@ -254,7 +291,9 @@ class LMS():
                 logging.debug("Could not find any LMS to use")
                 raise IOError("No LMS host to connect to.")
             else:
-                self.host = my_lms
+                self.host = my_lms["host"]
+                self.port = my_lms.get("port", self.port)
+                self.http_port = my_lms.get("http_port", self.http_port)
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((self.host, self.port))

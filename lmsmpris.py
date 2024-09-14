@@ -181,10 +181,13 @@ class LMSWrapper(threading.Thread):
                 with open(config_file, 'r') as file:
                     config_data = json.load(file)
                 # Extract the server address from the nested structure
-                server_address = config_data.get('server', {}).get('value')
+                server = config_data.get('server', {})
+                server_address = server.get('value')
                 if server_address:
                     logging.info("Using server %s from config file")
-                    self.lms = LMS(host=server_address)
+                    server_port = server.get('port', 9090)
+                    server_http_port = server.get('http_port', 9000)
+                    self.lms = LMS(host=server_address, port=server_port, http_port=server_http_port)
                 else:
                     # If the server address is not found, fall back to automatic discovery
                     self.lms = LMS(find_my_server=True)
